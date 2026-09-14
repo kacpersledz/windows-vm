@@ -1,0 +1,38 @@
+services:
+  windows:
+    image: dockurr/windows:6.05
+    container_name: windows-vm
+
+    environment:
+      VERSION: "11"
+      CPU_CORES: "8"
+      RAM_SIZE: "12G"
+      DISK_SIZE: "128G"
+
+      USERNAME: "${WINDOWS_USERNAME:?WINDOWS_USERNAME must be set in .env}"
+      PASSWORD: "${WINDOWS_PASSWORD:?WINDOWS_PASSWORD must be set in .env}"
+
+      PROTECT: "Y"
+      TZ: "Europe/Warsaw"
+
+      ARGUMENTS: >-
+        -device usb-host,vendorid=${USB_VENDOR_ID:?USB_VENDOR_ID must be set in .env},productid=${USB_PRODUCT_ID:?USB_PRODUCT_ID must be set in .env}
+
+    devices:
+      - /dev/kvm
+      - /dev/net/tun
+      - /dev/bus/usb
+
+    cap_add:
+      - NET_ADMIN
+
+    ports:
+      - "127.0.0.1:8006:8006"
+      - "127.0.0.1:3389:3389/tcp"
+      - "127.0.0.1:3389:3389/udp"
+
+    volumes:
+      - ./local/storage:/storage
+      - ./local/shared:/shared
+
+    stop_grace_period: 2m

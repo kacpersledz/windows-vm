@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+cat <<'EOF'
+Current Dockur pin: 6.05
+
+To upgrade to a newer Dockur release:
+1. intentionally change the image tag in compose.yml
+2. review the change
+3. run this script
+EOF
+
+sudo docker compose pull windows

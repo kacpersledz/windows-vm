@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if ! command -v docker >/dev/null 2>&1; then
+  printf 'docker is required but was not found.\n' >&2
+  exit 1
+fi
+
+container_state="stopped"
+if [[ "$(sudo docker inspect --format '{{.State.Running}}' windows-vm 2>/dev/null || true)" == "true" ]]; then
+  container_state="running"
+fi
+
+printf 'Container: %s\n' "$container_state"
+printf 'RDP: mapped at 127.0.0.1:3389\n'
+printf 'Web console: http://127.0.0.1:8006\n'
+printf 'Storage: %s/local/storage\n' "$repo_root"
+printf 'Shared: %s/local/shared\n' "$repo_root"

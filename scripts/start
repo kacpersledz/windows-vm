@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if [[ ! -f .env ]]; then
+  printf 'Missing .env. Create it with: cp .env.example .env\n' >&2
+  exit 1
+fi
+
+read_env_value() {
+  local key="$1"
+  awk -v key="$key" '
+    $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+      value = $0
+      sub("^[[:space:]]*" key "[[:space:]]*=[[:space:]]*", "", value)
+      sub("[[:space:]]*\\r$", "", value)
+      if (value ~ /^".*"$/ || value ~ /^\047.*\047$/) {
+        value = substr(value, 2, length(value) - 2)
+      }
+      print value
+      exit
+    }
+  ' .env
+}
+
+for key in WINDOWS_USERNAME WINDOWS_PASSWORD USB_VENDOR_ID USB_PRODUCT_ID; do
+  value="$(read_env_value "$key")"
+  if [[ -z "$value" || "$value" == "CHANGE_ME" || "$value" == "0x0000" ]]; then
+    printf 'Set %s to a non-placeholder value in .env.\n' "$key" >&2
+    exit 1
+  fi
+done
+unset value
+
+if ! command -v docker >/dev/null 2>&1; then
+  printf 'docker is required but was not found.\n' >&2
+  exit 1
+fi
+
+if ! sudo docker compose version >/dev/null 2>&1; then
+  printf 'sudo docker compose is unavailable or could not be accessed.\n' >&2
+  exit 1
+fi
+
+for device in /dev/kvm /dev/net/tun /dev/bus/usb; do
+  if [[ ! -e "$device" ]]; then
+    printf 'Required host path is missing: %s\n' "$device" >&2
+    exit 1
+  fi
+done
+
+mkdir -p local/storage local/shared
+sudo docker compose up -d
+
+cat <<'EOF'
+Windows VM started.
+
+Installer/recovery console:
+http://127.0.0.1:8006
+
+Connect when Windows is ready:
+./scripts/connect
+EOF

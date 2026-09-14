@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+if [[ ! -f .env ]]; then
+  printf 'Missing .env. Create it with: cp .env.example .env\n' >&2
+  exit 1
+fi
+
+WINDOWS_USERNAME="$(awk '
+  /^[[:space:]]*WINDOWS_USERNAME[[:space:]]*=/ {
+    value = $0
+    sub("^[[:space:]]*WINDOWS_USERNAME[[:space:]]*=[[:space:]]*", "", value)
+    sub("[[:space:]]*\\r$", "", value)
+    if (value ~ /^".*"$/ || value ~ /^\047.*\047$/) {
+      value = substr(value, 2, length(value) - 2)
+    }
+    print value
+    exit
+  }
+' .env)"
+
+if [[ -z "$WINDOWS_USERNAME" || "$WINDOWS_USERNAME" == "CHANGE_ME" ]]; then
+  printf 'Set WINDOWS_USERNAME to a non-placeholder value in .env.\n' >&2
+  exit 1
+fi
+
+if ! command -v xfreerdp3 >/dev/null 2>&1; then
+  printf 'xfreerdp3 is required but was not found.\n' >&2
+  exit 1
+fi
+
+if ! command -v docker >/dev/null 2>&1; then
+  printf 'docker is required but was not found.\n' >&2
+  exit 1
+fi
+
+if [[ "$(sudo docker inspect --format '{{.State.Running}}' windows-vm 2>/dev/null || true)" != "true" ]]; then
+  printf 'Windows VM container is not running. Start it with ./scripts/start.\n' >&2
+  exit 1
+fi
+
+if ! xfreerdp3 \
+  /v:127.0.0.1:3389 \
+  /u:"$WINDOWS_USERNAME" \
+  /sound \
+  /microphone \
+  /clipboard \
+  /dynamic-resolution \
+  +auto-reconnect \
+  /cert:tofu; then
+  printf '%s\n' \
+    'RDP connection failed. Windows may still be booting.' \
+    'The VM has been left running; retry ./scripts/connect shortly.' >&2
+  exit 1
+fi
