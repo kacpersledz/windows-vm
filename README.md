@@ -10,7 +10,7 @@ This is a small, standalone Docker Compose definition for an occasional-use Wind
 Linux host
 ├── Docker / Docker Compose
 ├── /dev/kvm
-├── FreeRDP 3 (xfreerdp3)
+├── FreeRDP (`xfreerdp3` or `xfreerdp`)
 ├── usbutils (lsusb)
 │
 └── windows-vm/
@@ -28,7 +28,7 @@ The host must provide:
 - Docker and Docker Compose
 - working `/dev/kvm` and `/dev/net/tun`
 - access to `/dev/bus/usb`
-- FreeRDP 3 (`xfreerdp3`)
+- FreeRDP (`xfreerdp3` or `xfreerdp`)
 - usbutils (`lsusb`)
 
 Install and configure these on the host separately. This project does not install host packages.
@@ -93,7 +93,7 @@ Use RDP for normal daily use. Port 8006 is primarily for initial installation an
 
 ## Connecting with FreeRDP
 
-`./scripts/connect` launches `xfreerdp3` against `127.0.0.1:3389` with sound, microphone, clipboard, dynamic resolution, automatic reconnect, and trust-on-first-use certificate handling. It passes only the username; FreeRDP prompts interactively for the Windows password so the password does not appear in the process list.
+`./scripts/connect` launches FreeRDP (`xfreerdp3` when available, otherwise `xfreerdp`) against `127.0.0.1:3389` with sound, microphone, clipboard, dynamic resolution, automatic reconnect, and trust-on-first-use certificate handling. It passes only the username; FreeRDP prompts interactively for the Windows password so the password does not appear in the process list.
 
 The container must already be running. If Windows is still booting, connection can fail; retry shortly. Closing or failing the RDP client never stops the VM.
 
@@ -157,6 +157,6 @@ Activation is a separate manual post-install task inside Windows. No product key
 
 ## Moving from Arch/Wintarch to NixOS/Wintix
 
-Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future host. No project files need conversion. The Wintix host only needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP 3, usbutils, and suitable USB device access. Keep `.env` mode `0600` after copying.
+Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future host. No project files need conversion. The Wintix host only needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP, usbutils, and suitable USB device access. Keep `.env` mode `0600` after copying.
 
 This repository intentionally contains no Nix or Wintix configuration. Host enablement remains a separate concern.

@@ -27,8 +27,12 @@ if [[ -z "$WINDOWS_USERNAME" || "$WINDOWS_USERNAME" == "CHANGE_ME" ]]; then
   exit 1
 fi
 
-if ! command -v xfreerdp3 >/dev/null 2>&1; then
-  printf 'xfreerdp3 is required but was not found.\n' >&2
+if command -v xfreerdp3 >/dev/null 2>&1; then
+  FREERDP=xfreerdp3
+elif command -v xfreerdp >/dev/null 2>&1; then
+  FREERDP=xfreerdp
+else
+  printf 'FreeRDP is required but was not found.\n' >&2
   exit 1
 fi
 
@@ -42,7 +46,7 @@ if [[ "$(sudo docker inspect --format '{{.State.Running}}' windows-vm 2>/dev/nul
   exit 1
 fi
 
-if ! xfreerdp3 \
+if ! "$FREERDP" \
   /v:127.0.0.1:3389 \
   /u:"$WINDOWS_USERNAME" \
   /sound \
