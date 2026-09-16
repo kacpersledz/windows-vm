@@ -25,7 +25,7 @@ read_env_value() {
   ' .env
 }
 
-for key in WINDOWS_USERNAME WINDOWS_PASSWORD USB_VENDOR_ID USB_PRODUCT_ID; do
+for key in WINDOWS_USERNAME WINDOWS_PASSWORD; do
   value="$(read_env_value "$key")"
   if [[ -z "$value" || "$value" == "CHANGE_ME" || "$value" == "0x0000" ]]; then
     printf 'Set %s to a non-placeholder value in .env.\n' "$key" >&2
@@ -44,7 +44,7 @@ if ! sudo docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-for device in /dev/kvm /dev/net/tun /dev/bus/usb; do
+for device in /dev/kvm /dev/net/tun; do
   if [[ ! -e "$device" ]]; then
     printf 'Required host path is missing: %s\n' "$device" >&2
     exit 1

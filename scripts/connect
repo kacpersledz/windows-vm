@@ -36,6 +36,13 @@ else
   exit 1
 fi
 
+FREERDP_BUILD_CONFIG="$("$FREERDP" /buildconfig 2>&1 || true)"
+if ! grep -q 'WITH_PCSC=TRUE' <<<"$FREERDP_BUILD_CONFIG"; then
+  printf 'FreeRDP must be built with PC/SC support (WITH_PCSC=TRUE).\n' >&2
+  exit 1
+fi
+unset FREERDP_BUILD_CONFIG
+
 if ! command -v docker >/dev/null 2>&1; then
   printf 'docker is required but was not found.\n' >&2
   exit 1
@@ -51,6 +58,7 @@ if ! "$FREERDP" \
   /u:"$WINDOWS_USERNAME" \
   /sound \
   /microphone \
+  /smartcard \
   /clipboard \
   /dynamic-resolution \
   +auto-reconnect \

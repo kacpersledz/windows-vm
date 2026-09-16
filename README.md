@@ -11,13 +11,18 @@ Linux host
 ├── Docker / Docker Compose
 ├── /dev/kvm
 ├── FreeRDP (`xfreerdp3` or `xfreerdp`)
-├── usbutils (lsusb)
+├── PC/SC service and USB CCID driver
+├── `pcsc_scan` diagnostic tool
 │
 └── windows-vm/
     └── dockurr/windows Docker container
         └── QEMU/KVM
             └── Windows 11 Pro
 ```
+
+The smart-card reader remains attached to the Linux host. FreeRDP redirects its
+PC/SC interface into the Windows RDP session; the Docker container does not
+receive raw access to the host USB bus.
 
 Docker commands intentionally use `sudo`; membership in the `docker` group is not assumed. The web console and RDP ports bind only to `127.0.0.1`, and `PROTECT=Y` protects the web interface.
 
@@ -27,11 +32,41 @@ The host must provide:
 
 - Docker and Docker Compose
 - working `/dev/kvm` and `/dev/net/tun`
-- access to `/dev/bus/usb`
-- FreeRDP (`xfreerdp3` or `xfreerdp`)
-- usbutils (`lsusb`)
+- a PC/SC service and USB CCID driver
+- FreeRDP (`xfreerdp3` or `xfreerdp`) built with PC/SC support
+- `pcsc_scan` for host-side reader diagnostics
 
 Install and configure these on the host separately. This project does not install host packages.
+
+### NixOS host configuration
+
+For NixOS, enable the system PC/SC service and install the diagnostic tool:
+
+```nix
+{ pkgs, ... }:
+
+{
+  services.pcscd.enable = true;
+
+  environment.systemPackages = [
+    pkgs.pcsc-tools
+  ];
+}
+```
+
+The NixOS `pcscd` module includes the generic `ccid` plugin and its udev rules.
+This supports USB CCID readers such as the HID Global OMNIKEY 5422 without
+configuring smart-card login or changing PAM authentication.
+
+After rebuilding the host, stop the VM, reconnect the reader, and verify that
+the host owns it:
+
+```bash
+pcsc_scan
+```
+
+Both the contact and contactless OMNIKEY interfaces should be listed. FreeRDP
+must also report `WITH_PCSC=TRUE` in its build configuration.
 
 ## Configuration
 
@@ -42,32 +77,9 @@ cp .env.example .env
 chmod 600 .env
 ```
 
-Replace every placeholder in `.env`. The file contains the Windows username and password plus the reader VID/PID. It is ignored by Git and must remain mode `0600`.
+Replace every placeholder in `.env`. The file contains the Windows username and password. It is ignored by Git and must remain mode `0600`.
 
 The VM is explicitly configured for Windows 11 Pro with 8 CPU cores, 12 GiB RAM, and a 128 GiB raw persistent disk. Stock Dockur defaults provide the host CPU model, KVM and Hyper-V enlightenments, q35 machine, SCSI disk, and the intended non-Secure-Boot/non-TPM configuration.
-
-## Finding USB VID/PID
-
-Connect the smart-card reader temporarily and run:
-
-```bash
-lsusb
-```
-
-For example:
-
-```text
-Bus 001 Device 005: ID 076b:1234 HID Global ...
-```
-
-becomes:
-
-```text
-USB_VENDOR_ID=0x076b
-USB_PRODUCT_ID=0x1234
-```
-
-Keep the `0x` prefixes. Only the configured VID/PID is matched by QEMU; this project does not pass through arbitrary storage devices.
 
 ## First Windows installation
 
@@ -76,9 +88,6 @@ Use this workflow:
 ```bash
 cp .env.example .env
 chmod 600 .env
-
-lsusb
-# edit .env
 
 ./scripts/start
 ```
@@ -93,23 +102,29 @@ Use RDP for normal daily use. Port 8006 is primarily for initial installation an
 
 ## Connecting with FreeRDP
 
-`./scripts/connect` launches FreeRDP (`xfreerdp3` when available, otherwise `xfreerdp`) against `127.0.0.1:3389` with sound, microphone, clipboard, dynamic resolution, automatic reconnect, and trust-on-first-use certificate handling. It passes only the username; FreeRDP prompts interactively for the Windows password so the password does not appear in the process list.
+`./scripts/connect` launches FreeRDP (`xfreerdp3` when available, otherwise `xfreerdp`) against `127.0.0.1:3389` with smart-card redirection, sound, microphone, clipboard, dynamic resolution, automatic reconnect, and trust-on-first-use certificate handling. It passes only the username; FreeRDP prompts interactively for the Windows password so the password does not appear in the process list.
 
 The container must already be running. If Windows is still booting, connection can fail; retry shortly. Closing or failing the RDP client never stops the VM.
 
-## Smart-card reader hotplug workflow
+## Smart-card reader workflow
 
-The reader uses raw QEMU USB passthrough, not SPICE redirection:
+The reader uses FreeRDP PC/SC redirection:
 
 ```text
-start VM
-→ Windows boots
-→ physically plug reader into laptop
-→ QEMU matches VID/PID
-→ Windows detects the actual USB reader
+OMNIKEY reader
+→ Linux PC/SC service
+→ FreeRDP `/smartcard` channel
+→ Windows RDP session
+→ Windows application
 ```
 
-If the reader was connected earlier, unplug and reconnect it after Windows boots. The host exposes `/dev/bus/usb` to the container and the configured QEMU `usb-host` device matches only its VID/PID.
+Connect the reader before running `./scripts/connect`. The reader is available
+inside the RDP session only while that session is connected. It is intentionally
+not passed to QEMU, because raw USB passthrough and host PC/SC access would
+compete for exclusive control of the same physical device.
+
+Use the web console for installation and recovery. Applications launched there
+do not receive the FreeRDP-redirected reader.
 
 ## Shared `Z:` folder
 
@@ -157,6 +172,6 @@ Activation is a separate manual post-install task inside Windows. No product key
 
 ## Moving from Arch/Wintarch to NixOS/Wintix
 
-Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future host. No project files need conversion. The Wintix host only needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP, usbutils, and suitable USB device access. Keep `.env` mode `0600` after copying.
+Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future host. No project files need conversion. The Wintix host only needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP with PC/SC support, and the PC/SC/CCID host configuration described above. Keep `.env` mode `0600` after copying.
 
 This repository intentionally contains no Nix or Wintix configuration. Host enablement remains a separate concern.
