@@ -101,7 +101,7 @@ build and its PC/SC support:
 
 ```bash
 xfreerdp3 /buildconfig
-xfreerdp3 /buildconfig | grep -Ei 'WITH_PCSC[[:space:]]*=[[:space:]]*(ON|TRUE|YES|Y|1)([[:space:]]|$)'
+xfreerdp3 /buildconfig | grep -Ei '(^|[[:space:]])WITH_PCSC[[:space:]]*=[[:space:]]*(ON|TRUE|YES|Y|1)([[:space:]]|$)'
 ```
 
 The second command must print a `WITH_PCSC` setting. `scripts/connect` accepts

@@ -37,25 +37,11 @@ else
 fi
 
 FREERDP_BUILD_CONFIG="$("$FREERDP" /buildconfig 2>&1 || true)"
-FREERDP_PCSC_VALUE="$(awk '
-  /^[[:space:]]*WITH_PCSC[[:space:]]*=/ {
-    value = $0
-    sub(/^[[:space:]]*WITH_PCSC[[:space:]]*=[[:space:]]*/, "", value)
-    sub(/[[:space:]].*$/, "", value)
-    print value
-    exit
-  }
-' <<<"$FREERDP_BUILD_CONFIG")"
-
-case "${FREERDP_PCSC_VALUE^^}" in
-  ON|TRUE|YES|Y|1)
-    ;;
-  *)
-    printf 'FreeRDP must be built with PC/SC support (WITH_PCSC enabled).\n' >&2
-    exit 1
-    ;;
-esac
-unset FREERDP_PCSC_VALUE
+if ! grep -Eiq '(^|[[:space:]])WITH_PCSC[[:space:]]*=[[:space:]]*(ON|TRUE|YES|Y|1)([[:space:]]|$)' \
+  <<<"$FREERDP_BUILD_CONFIG"; then
+  printf 'FreeRDP must be built with PC/SC support (WITH_PCSC enabled).\n' >&2
+  exit 1
+fi
 unset FREERDP_BUILD_CONFIG
 
 if ! command -v docker >/dev/null 2>&1; then
