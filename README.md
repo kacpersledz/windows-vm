@@ -2,7 +2,7 @@
 
 ## What this project is
 
-This is a small, standalone Docker Compose definition for an occasional-use Windows 11 Pro VM. It runs the pinned `dockurr/windows:6.05` container, which runs QEMU/KVM and automates the Windows download and installation. It does not configure Nix, libvirt, host QEMU, GPU passthrough, Secure Boot, or TPM.
+This is a small, standalone Docker Compose definition for an occasional-use Windows 11 Pro VM. It runs the pinned `dockurr/windows:6.05` container, which runs QEMU/KVM and automates the Windows download and installation. It does not configure the host OS, libvirt, host QEMU, GPU passthrough, Secure Boot, or TPM.
 
 ## Architecture
 
@@ -65,8 +65,48 @@ the host owns it:
 pcsc_scan
 ```
 
-Both the contact and contactless OMNIKEY interfaces should be listed. FreeRDP
-must also report `WITH_PCSC=TRUE` in its build configuration.
+Both the contact and contactless OMNIKEY interfaces should be listed.
+
+### Ubuntu host setup
+
+Install the host prerequisites, including Docker Compose v2, the X11 FreeRDP
+client, and the PC/SC service and CCID driver:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2 freerdp3-x11 pcscd libccid pcsc-tools
+sudo systemctl enable --now pcscd
+```
+
+Verify Docker Compose v2 and the required KVM and TUN devices:
+
+```bash
+docker compose version
+test -e /dev/kvm && echo '/dev/kvm is available'
+test -e /dev/net/tun && echo '/dev/net/tun is available'
+```
+
+If either device check fails, enable KVM virtualization in the host firmware as
+needed and ensure the appropriate host kernel support is present before using
+this project.
+
+With the smart-card reader connected, verify that PC/SC can see it:
+
+```bash
+pcsc_scan
+```
+
+Press `Ctrl-C` after confirming the reader is listed. Then verify the FreeRDP
+build and its PC/SC support:
+
+```bash
+xfreerdp3 /buildconfig
+xfreerdp3 /buildconfig | grep -Ei 'WITH_PCSC[[:space:]]*=[[:space:]]*(ON|TRUE|YES|Y|1)([[:space:]]|$)'
+```
+
+The second command must print a `WITH_PCSC` setting. `scripts/connect` accepts
+the standard enabled CMake values `ON`, `TRUE`, `YES`, `Y`, and `1`, without
+regard to case.
 
 ## Configuration
 
@@ -103,6 +143,9 @@ Use RDP for normal daily use. Port 8006 is primarily for initial installation an
 ## Connecting with FreeRDP
 
 `./scripts/connect` launches FreeRDP (`xfreerdp3` when available, otherwise `xfreerdp`) against `127.0.0.1:3389` with smart-card redirection, sound, microphone, clipboard, dynamic resolution, automatic reconnect, and trust-on-first-use certificate handling. It passes only the username; FreeRDP prompts interactively for the Windows password so the password does not appear in the process list.
+
+`scripts/connect` uses the X11 FreeRDP client, so it needs an X11 graphical
+environment or XWayland session on the host.
 
 The container must already be running. If Windows is still booting, connection can fail; retry shortly. Closing or failing the RDP client never stops the VM.
 
@@ -170,8 +213,8 @@ The update script never modifies `local/storage`. Host OS updates remain indepen
 
 Activation is a separate manual post-install task inside Windows. No product key is stored in `.env`, Compose, Git, or the scripts.
 
-## Moving from Arch/Wintarch to NixOS/Wintix
+## Moving to another Linux host
 
-Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future host. No project files need conversion. The Wintix host only needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP with PC/SC support, and the PC/SC/CCID host configuration described above. Keep `.env` mode `0600` after copying.
+Stop the VM cleanly, then move the same project folder—including the ignored `local/storage`, `local/shared`, and private `.env`—to the future Linux host. No project files need conversion. The new host needs Docker, Docker Compose, `/dev/kvm`, `/dev/net/tun`, FreeRDP with PC/SC support, and the applicable PC/SC/CCID host configuration described above. Keep `.env` mode `0600` after copying.
 
-This repository intentionally contains no Nix or Wintix configuration. Host enablement remains a separate concern.
+This repository intentionally contains no distro-specific host configuration. Host enablement remains a separate concern.
