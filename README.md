@@ -75,7 +75,7 @@ client, and the PC/SC service and CCID driver:
 ```bash
 sudo apt update
 sudo apt install -y docker.io docker-compose-v2 freerdp3-x11 pcscd libccid pcsc-tools
-sudo systemctl enable --now pcscd
+sudo systemctl enable --now pcscd.socket
 ```
 
 Verify Docker Compose v2 and the required KVM and TUN devices:
